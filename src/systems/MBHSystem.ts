@@ -20,6 +20,7 @@ export default class MBHSystem {
       if (Math.random() < 0.05) {
         const elite = this.eliteUnits.create(Phaser.Math.Between(0, 8000), Phaser.Math.Between(0, 6000), 'elite');
         this.scene.physics.moveToObject(elite, this.scene['player'], 250);
+        elite.anims.play('elite-walk', true); // Play elite animation
       }
       this.scene['shopsSafehouses'].safehouses.forEach(s => s.setVisible(false));
     }
