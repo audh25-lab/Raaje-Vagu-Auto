@@ -20,6 +20,7 @@ export default class PressureSystem {
       const tile = this.grid[gy][gx];
       tile.value = Phaser.Math.Clamp(tile.value + delta, 10, 100);
       tile.gangId = gangId;
+      tile.aggression = 1 + (tile.value / 100);
     }
   }
 
@@ -30,6 +31,20 @@ export default class PressureSystem {
   }
 
   recalculate() {
+    for (let y = 0; y < this.height; y++) {
+      for (let x = 0; x < this.width; x++) {
+        const tile = this.grid[y][x];
+        tile.value = Math.max(10, tile.value - 0.1);
+        if (tile.value > 50) {
+          const neighbors = [[x-1, y], [x+1, y], [x, y-1], [x, y+1]];
+          neighbors.forEach(([nx, ny]) => {
+            if (nx >= 0 && nx < this.width && ny >= 0 && ny < this.height) {
+              this.grid[ny][nx].value += 0.5;
+            }
+          });
+        }
+      }
+    }
   }
 
   partialReset() {
