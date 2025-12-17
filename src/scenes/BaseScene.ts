@@ -48,7 +48,7 @@ export default class BaseScene extends Phaser.Scene {
 
   preload() {
     this.load.image('city_tiles', 'https://opengameart.org/sites/default/files/Sample_24.png');
-    this.load.spritesheet('player', 'https://opengameart.org/sites/default/files/topdownshootercharacters.png', { frameWidth: 32, frameHeight: 32 }); // Upgraded to spritesheet for animations
+    this.load.spritesheet('player', 'https://opengameart.org/sites/default/files/topdownshootercharacters.png', { frameWidth: 32, frameHeight: 32 });
     this.load.image('car', 'https://www.clipartmax.com/png/middle/19-195986_clipart-car-from-above-race-top-down-clipground-car-clip-art-from.png');
     this.load.spritesheet('gang_member', 'https://opengameart.org/sites/default/files/gangster.png', { frameWidth: 32, frameHeight: 32 });
     this.load.spritesheet('police', 'https://opengameart.org/sites/default/files/police.png', { frameWidth: 32, frameHeight: 32 });
@@ -96,7 +96,7 @@ export default class BaseScene extends Phaser.Scene {
     this.player = this.physics.add.sprite(400, 300, 'player').setCollideWorldBounds(true);
     this.cameras.main.startFollow(this.player, true, 0.08, 0.08);
 
-    // Animations for player
+    // Common animations
     this.anims.create({
       key: 'player-walk',
       frames: this.anims.generateFrameNumbers('player', { start: 0, end: 3 }),
@@ -107,6 +107,36 @@ export default class BaseScene extends Phaser.Scene {
       key: 'player-idle',
       frames: [{ key: 'player', frame: 0 }],
       frameRate: 20
+    });
+    this.anims.create({
+      key: 'gang-walk',
+      frames: this.anims.generateFrameNumbers('gang_member', { start: 0, end: 3 }),
+      frameRate: 10,
+      repeat: -1
+    });
+    this.anims.create({
+      key: 'police-walk',
+      frames: this.anims.generateFrameNumbers('police', { start: 0, end: 3 }),
+      frameRate: 10,
+      repeat: -1
+    });
+    this.anims.create({
+      key: 'civilian-walk',
+      frames: this.anims.generateFrameNumbers('civilian', { start: 0, end: 3 }),
+      frameRate: 8,
+      repeat: -1
+    });
+    this.anims.create({
+      key: 'boss-walk',
+      frames: this.anims.generateFrameNumbers('boss', { start: 0, end: 7 }),
+      frameRate: 8,
+      repeat: -1
+    });
+    this.anims.create({
+      key: 'elite-walk',
+      frames: this.anims.generateFrameNumbers('elite', { start: 0, end: 5 }),
+      frameRate: 12,
+      repeat: -1
     });
 
     this.keys = this.input.keyboard!.createCursorKeys();
@@ -163,20 +193,41 @@ export default class BaseScene extends Phaser.Scene {
       const norm = Math.sqrt(dx * dx + dy * dy);
       body.setVelocity(speed * dx / norm, speed * dy / norm);
       this.player.setRotation(Phaser.Math.Angle.Between(0, 0, dx, dy));
-      this.player.anims.play('player-walk', true); // Play walk animation
+      this.player.anims.play('player-walk', true);
     } else {
-      this.player.anims.play('player-idle', true); // Idle when stopped
+      this.player.anims.play('player-idle', true);
     }
 
-    if (Phaser.Input.Keyboard.JustDown(this.keys.space) && this.playerStats.ammo > 0 && this.time.now > this.player.getData('lastShot') + 500) {
-      this.sound.play('gun_shot');
-      this.playerStats.ammo--;
-      this.playerStats.heat += 5;
-      this.reputation.accumulate(1);
-      this.player.setData('lastShot', this.time.now);
-      this.bullets.fireBullet(this.player.x, this.player.y, this.player.rotation);
-      this.cameras.main.shake(100, 0.01);
-      this.pressure.updatePressure(this.player.x, this.player.y, 10, 'player');
+    if (Phaser.Input.Keyboard.JustDown(this.keys.space) && this.time.now > this.player.getData('lastAction') + 500) {
+      this.player.setData('lastAction', this.time.now);
+      if (this.playerStats.ammo > 0) {
+        this.sound.play('gun_shot');
+        this.playerStats.ammo--;
+        this.playerStats.heat += 5;
+        this.reputation.accumulate(1);
+        this.bullets.fireBullet(this.player.x, this.player.y, this.player.rotation);
+        this.cameras.main.shake(100, 0.01);
+        this.pressure.updatePressure(this.player.x, this.player.y, 10, 'player');
+      } else {
+        // Melee: Find nearest enemy and damage
+        let nearest: Phaser.Physics.Arcade.Sprite | null = null;
+        let minDist = Infinity;
+        const allEnemies = [...this.gangs.members.getChildren(), ...this.police.units.getChildren(), ...this.mbh.eliteUnits.getChildren()];
+        allEnemies.forEach(enemy => {
+          const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, enemy.x, enemy.y);
+          if (dist < 50 && dist < minDist) {
+            minDist = dist;
+            nearest = enemy as Phaser.Physics.Arcade.Sprite;
+          }
+        });
+        if (nearest) {
+          nearest.setData('hp', nearest.getData('hp') - 30);
+          if (nearest.getData('hp') <= 0) nearest.destroy();
+          this.playerStats.heat += 3;
+          this.reputation.accumulate(0.5);
+          this.cameras.main.shake(150, 0.015);
+        }
+      }
     }
 
     if (Phaser.Input.Keyboard.JustDown(this.input.keyboard!.addKey('E'))) {
