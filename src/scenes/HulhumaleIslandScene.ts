@@ -1,6 +1,6 @@
 import BaseScene from './BaseScene';
 
-export default class HulhumaleIslandScene extends BaseScene {
+export default class HulhumaleIslandScene extends Phaser.Scene {
   constructor() {
     super('HulhumaleIslandScene');
   }
@@ -18,5 +18,7 @@ export default class HulhumaleIslandScene extends BaseScene {
     this.gangs.addGang('Low Tide', 'C', 0x404040, [], []);
     this.gangs.addGang('Breakwater Boys', 'C', 0xc0c0c0, [], []);
     this.gangs.addGang('Flat Nine', 'C', 0x00ff00, [], []);
+
+    this.pressure.assignTerritories(this.gangs.gangs);
   }
 }
