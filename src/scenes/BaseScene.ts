@@ -41,6 +41,8 @@ export default class BaseScene extends Phaser.Scene {
 
   protected tilemap!: Phaser.Tilemaps.Tilemap;
   protected hazeGraphics!: Phaser.GameObjects.Graphics;
+  protected hpText!: Phaser.GameObjects.Text;
+  protected ammoText!: Phaser.GameObjects.Text;
 
   constructor(key: string) {
     super(key);
@@ -49,7 +51,7 @@ export default class BaseScene extends Phaser.Scene {
   preload() {
     this.load.image('city_tiles', 'https://opengameart.org/sites/default/files/Sample_24.png');
     this.load.spritesheet('player', 'https://opengameart.org/sites/default/files/topdownshootercharacters.png', { frameWidth: 32, frameHeight: 32 });
-    this.load.image('car', 'https://www.clipartmax.com/png/middle/19-195986_clipart-car-from-above-race-top-down-clipground-car-clip-art-from.png');
+    this.load.spritesheet('car', 'https://opengameart.org/sites/default/files/car_spritesheet.png', { frameWidth: 64, frameHeight: 32 });
     this.load.spritesheet('gang_member', 'https://opengameart.org/sites/default/files/gangster.png', { frameWidth: 32, frameHeight: 32 });
     this.load.spritesheet('police', 'https://opengameart.org/sites/default/files/police.png', { frameWidth: 32, frameHeight: 32 });
     this.load.spritesheet('civilian', 'https://opengameart.org/sites/default/files/civilian.png', { frameWidth: 32, frameHeight: 32 });
@@ -96,7 +98,6 @@ export default class BaseScene extends Phaser.Scene {
     this.player = this.physics.add.sprite(400, 300, 'player').setCollideWorldBounds(true);
     this.cameras.main.startFollow(this.player, true, 0.08, 0.08);
 
-    // Common animations
     this.anims.create({
       key: 'player-walk',
       frames: this.anims.generateFrameNumbers('player', { start: 0, end: 3 }),
@@ -138,6 +139,12 @@ export default class BaseScene extends Phaser.Scene {
       frameRate: 12,
       repeat: -1
     });
+    this.anims.create({
+      key: 'car-drive',
+      frames: this.anims.generateFrameNumbers('car', { start: 0, end: 1 }),
+      frameRate: 5,
+      repeat: -1
+    });
 
     this.keys = this.input.keyboard!.createCursorKeys();
     this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
@@ -152,12 +159,28 @@ export default class BaseScene extends Phaser.Scene {
     const ambient = this.sound.add('ambient_city', { loop: true, volume: 0.5 });
     ambient.play();
 
-    this.add.text(10, 10, 'HP: 100', { font: '16px Arial', fill: '#ff0000' }).setScrollFactor(0);
+    this.hpText = this.add.text(10, 10, 'HP: 100', { font: '16px Arial', fill: '#ff0000' }).setScrollFactor(0);
+    this.ammoText = this.add.text(10, 30, 'Ammo: 50', { font: '16px Arial', fill: '#00ff00' }).setScrollFactor(0);
 
     this.physics.add.collider(this.player, layer!);
     this.physics.add.collider(this.bullets, this.gangs.members, (bullet, member) => {
       member.setData('hp', member.getData('hp') - 20);
       if (member.getData('hp') <= 0) member.destroy();
+      bullet.destroy();
+    });
+    this.physics.add.collider(this.bullets, this.police.units, (bullet, unit) => {
+      unit.setData('hp', unit.getData('hp') - 20);
+      if (unit.getData('hp') <= 0) unit.destroy();
+      bullet.destroy();
+    });
+    this.physics.add.collider(this.bullets, this.civilians.civilians, (bullet, civ) => {
+      civ.destroy();
+      this.playerStats.heat += 10;
+      bullet.destroy();
+    });
+    this.physics.add.collider(this.bullets, this.mbh.eliteUnits, (bullet, elite) => {
+      elite.setData('hp', elite.getData('hp') - 20);
+      if (elite.getData('hp') <= 0) elite.destroy();
       bullet.destroy();
     });
   }
@@ -192,10 +215,16 @@ export default class BaseScene extends Phaser.Scene {
     if (dx !== 0 || dy !== 0) {
       const norm = Math.sqrt(dx * dx + dy * dy);
       body.setVelocity(speed * dx / norm, speed * dy / norm);
-      this.player.setRotation(Phaser.Math.Angle.Between(0, 0, dx, dy));
+      const rotation = Phaser.Math.Angle.Between(0, 0, dx, dy);
+      this.player.setRotation(rotation);
       this.player.anims.play('player-walk', true);
+      if (this.currentVehicle) {
+        this.currentVehicle.setRotation(rotation);
+        this.currentVehicle.anims.play('car-drive', true);
+      }
     } else {
       this.player.anims.play('player-idle', true);
+      if (this.currentVehicle) this.currentVehicle.anims.stop();
     }
 
     if (Phaser.Input.Keyboard.JustDown(this.keys.space) && this.time.now > this.player.getData('lastAction') + 500) {
@@ -209,7 +238,6 @@ export default class BaseScene extends Phaser.Scene {
         this.cameras.main.shake(100, 0.01);
         this.pressure.updatePressure(this.player.x, this.player.y, 10, 'player');
       } else {
-        // Melee: Find nearest enemy and damage
         let nearest: Phaser.Physics.Arcade.Sprite | null = null;
         let minDist = Infinity;
         const allEnemies = [...this.gangs.members.getChildren(), ...this.police.units.getChildren(), ...this.mbh.eliteUnits.getChildren()];
@@ -262,6 +290,20 @@ export default class BaseScene extends Phaser.Scene {
 
     if (this.currentVehicle && this.currentVehicle.getData('damage') > 50) {
       this.playerStats.heat += 1;
+    }
+
+    if (pressure > 80 && Math.random() < 0.01) {
+      const expX = Phaser.Math.Between(0, 8000);
+      const expY = Phaser.Math.Between(0, 6000);
+      this.sound.play('explosion');
+      this.cameras.main.shake(300, 0.03);
+      this.pressure.updatePressure(expX, expY, 20, 'chaos');
+    }
+
+    this.hpText.setText(`HP: ${this.playerStats.hp}`);
+    this.ammoText.setText(`Ammo: ${this.playerStats.ammo}`);
+    if (this.playerStats.hp <= 0) {
+      this.scene.pause();
     }
 
     if (pressure > 90 && this.scene.key === 'MaleIslandScene') {
