@@ -1,6 +1,6 @@
 import BaseScene from './BaseScene';
 
-export default class MaleIslandScene extends BaseScene {
+export default class MaleIslandScene extends Phaser.Scene {
   constructor() {
     super('MaleIslandScene');
   }
@@ -25,5 +25,7 @@ export default class MaleIslandScene extends BaseScene {
     this.gangs.addGang('Concrete Current', 'C', 0x00ffff, [], []);
     this.gangs.addGang('Rust Veins', 'C', 0xffffff, [], []);
     this.gangs.addGang('Night Market Teeth', 'C', 0x808080, [], []);
+
+    this.pressure.assignTerritories(this.gangs.gangs);
   }
 }
