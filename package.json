@@ -2,7 +2,6 @@
   "name": "raaje-vagu-auto",
   "version": "1.0.0",
   "description": "Top-down GTA 1/2 style crime game based on RAAJE-VAGU-AUTO Bible",
-  "main": "dist/index.html",
   "scripts": {
     "start": "parcel src/index.html",
     "build": "parcel build src/index.html --public-url ./",
