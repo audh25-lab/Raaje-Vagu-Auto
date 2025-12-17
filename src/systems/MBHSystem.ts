@@ -19,8 +19,10 @@ export default class MBHSystem {
       police['units'].getChildren().forEach(u => (u.body as Phaser.Physics.Arcade.Body).setVelocity(300));
       if (Math.random() < 0.05) {
         const elite = this.eliteUnits.create(Phaser.Math.Between(0, 8000), Phaser.Math.Between(0, 6000), 'elite');
-        this.scene.physics.moveToObject(elite, this.scene['player'], 250);
-        elite.anims.play('elite-walk', true); // Play elite animation
+        if (elite) {
+          this.scene.physics.moveToObject(elite, this.scene['player'], 250);
+          elite.anims.play('elite-walk', true);
+        }
       }
       this.scene['shopsSafehouses'].safehouses.forEach(s => s.setVisible(false));
     }
